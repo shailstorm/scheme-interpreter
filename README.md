@@ -1,2 +1,1 @@
-# lisp
-scheme (LISP) interpreter
+# scheme (LISP) interpreter
