@@ -1,39 +1,10 @@
 # 1. [LEXER] tokenize(source) -> tokens
 # 2. [PARSER] parse(tokens) -> abstract syntax tree
 # 3. [INTERPRETER] evaluate(tree, frame) -> result
-    # default frame = globalFrame. globalFrame stores all builtin functions like '+', '*', 'not', 'list', etc
+    # default frame = globalFrame
 
+from exceptions import SchemeError, SchemeSyntaxError, SchemeEvaluationError, SchemeNameError
 import re
-import sys
-sys.setrecursionlimit(20_000)
-
-class SchemeError(Exception):
-    """
-    A type of exception to be raised if there is an error with a Scheme
-    program.  Should never be raised directly; rather, subclasses should be
-    raised.
-    """
-    pass
-
-class SchemeSyntaxError(SchemeError):
-    """
-    Exception to be raised when trying to evaluate a malformed expression.
-    """
-
-    pass
-
-class SchemeNameError(SchemeError):
-    """
-    Exception to be raised when looking up a name that has not been defined.
-    """
-    pass
-
-class SchemeEvaluationError(SchemeError):
-    """
-    Exception to be raised if there is an error during evaluation other than a
-    SchemeNameError.
-    """
-    pass
 
 
 # lexing and parsing
@@ -61,7 +32,9 @@ def tokenize(source):
 
     tokens = re.findall(pattern, allinone)
     # tokens = ['(', 'define', 'DIAMETER', '10', ')', '(', 'define', 'bip', '" beep boop"', ')']
+    
     return tokens
+
 
 def parse(tokens):
     """
@@ -74,8 +47,6 @@ def parse(tokens):
         tokens (list): a list of strings representing tokens
     """
     def parse_helper(index):
-        # print('tokenssss:', tokens)
-
         if tokens[index] == '(':
             index += 1
             exp = [] # start a subexp
@@ -86,7 +57,6 @@ def parse(tokens):
             return exp, index + 1
         
         elif tokens[index] == ')': # a ')' without first a '('
-            # print('poopoo token:', tokens[index], index, tokens[:index+1])
             raise SchemeSyntaxError
         
         elif tokens[index].startswith('"') and tokens[index].endswith('"'):
@@ -109,7 +79,7 @@ def parse(tokens):
     return expression
 
 
-# Built-in Functions
+# built-in functions
 
 def not_func(args):
     """
@@ -382,11 +352,10 @@ scheme_builtins = {
     'reduce': reduce_helper,
 
     'begin': begin_helper,
-
 }
 
 
-# Evaluation
+# evaluation
 
 class Frame:
     """
@@ -404,7 +373,6 @@ class Frame:
             return self.vars[get_var]
         if self.parent is not None: # recursively look in parent frame
             return self.parent[get_var]
-        print('bloop:', get_var, ':')
         raise SchemeNameError(f"variable {get_var} not defined")
     
     def __delitem__(self, var):
@@ -424,12 +392,10 @@ class Frame:
                 return self.parent.setbang(var, expr)
             raise SchemeNameError(f"variable {var} not defined")
 
-
 # add builtins to globalFrame
 globalFrame = Frame()
 for k, v in scheme_builtins.items():
     globalFrame[k] = v
-
 
 class Function:
     """
@@ -462,7 +428,7 @@ class Pair:
 
 
 """
-StringLiteral can't be a subclass of Python str bc it will use the string text as variable but not the string itself
+Python dynamic type checks so an object cast as StringLiteral would also be str at runtime
 """
 # class StringLiteral(str):
 #     def __new__(cls, text):
@@ -497,7 +463,7 @@ def evaluate(tree, frame=None):
     elif isinstance(tree, str): # symbol
         return frame[tree]
 
-    if not isinstance(tree, list): # not a list
+    if not isinstance(tree, list): # should be list
         raise SchemeEvaluationError
     
     if not tree:
@@ -506,7 +472,6 @@ def evaluate(tree, frame=None):
     operator = tree[0]
 
     if operator == 'define':
-        
         # variable declaration
         if not isinstance(tree[1], list):
             if not isinstance(tree[1], str):
@@ -580,7 +545,6 @@ def evaluate(tree, frame=None):
         new_exp = evaluate(tree[2], frame)
         return frame.setbang(tree[1], new_exp)
 
-
     args = []
     for _, item in enumerate(tree): # adds all the fxn's args to the list
         arg = evaluate(item, frame)
@@ -639,19 +603,3 @@ def result_and_frame(tree, frame=None):
 
 if __name__ == '__main__':
     repl(verbose=True)
-
-    # need to tokenize
-    tokens = tokenize('(cat (dog (tomato)))')
-    print(parse(tokens))
-
-    # already tokens
-    print(parse(['2']))
-    print(parse(['(', '+', '2', '(', '-', '5', '3', ')', '7', '8', ')']))
-    print(parse(['(', '5', '4',')']))
-
-    # interpreter
-    func = scheme_builtins['<']
-    print(func([3, 4, 5, 7, 8]))
-
-    fun = Function(['x'], ['*', 'x', 'x'], scheme_builtins)
-    print(fun([5]))
